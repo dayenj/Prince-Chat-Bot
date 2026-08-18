@@ -240,3 +240,233 @@
         "cooldownTime": 1200000
     }
 }
+import datetime
+import re
+import time
+from fbchat import Client, Message, ThreadType
+from fbchat.models import Mention
+
+# ==========================================
+#  CONFIGURATIONS & CREDS (ALL PRE-CONFIGURED)
+# ==========================================
+
+# Bot Info
+BOT_NAME = "BVCSZ ADD CEO SAYEM"
+BOT_ID = "61593139003201"
+BOT_LINK = "https://www.facebook.com/profile.php?id=61593139003201"
+
+# Team Name (Stylish Font)
+TEAM_NAME = "🅑🅛🅐🅞🅚 🅥🅔🅝🅞🅜 🅞🅎🅑🅔🅡 🅢🅔🅞🅤🅡🅘🅣🅨 🅩🅞🅝🅔"
+
+# Admin 1 (Main Admin / Owner - Sayem)
+ADMIN_1_ID = "61593283054921"
+ADMIN_1_LINK = "https://www.facebook.com/profile.php?id=61593283054921"
+
+# Admin 2 (Second Admin)
+ADMIN_2_ID = "61593372211780"
+ADMIN_2_LINK = "https://www.facebook.com/profile.php?id=61593372211780"
+
+# Admin IDs List
+ADMIN_IDS = [ADMIN_1_ID, ADMIN_2_ID]
+
+# Bad Words List for Warning
+BAD_WORDS = ["gali1", "gali2", "badword"]
+
+
+# ==========================================
+#  BOT MAIN CLASS
+# ==========================================
+
+class BVCSZBot(Client):
+
+    def __init__(self, email, password):
+        super().__init__(email, password)
+        self.stop_mention = False
+
+    def onGroupJoin(self, thread_id, author_id, thread_type=ThreadType.GROUP, **kwargs):
+        """বটকে যেকোনো নতুন বক্সে অ্যাড করলে মেসেজ দিবে"""
+        thank_you_msg = (
+            f"🔥 {TEAM_NAME} 🔥\n\n"
+            f"ধন্যবাদ Sayem sir আমাকে এতো সুন্দর একটা জায়গায় আনার জন্য! ❤️\n\n"
+            f"Powered by: {BOT_NAME}"
+        )
+        self.send(
+            Message(text=thank_you_msg),
+            thread_id=thread_id,
+            thread_type=thread_type,
+        )
+
+    def onPeopleAdded(self, added_ids, author_id, thread_id, thread_type, **kwargs):
+        """নতুন মেম্বার জয়েন করলে ওয়েলকাম মেসেজ"""
+        now = datetime.datetime.now().strftime("%d-%m-%Y | %I:%M:%S %p")
+        for user_id in added_ids:
+            user = self.fetchUserInfo(user_id)[user_id]
+            welcome_text = (
+                f"🔥 {TEAM_NAME} 🔥\n\n"
+                f"Welcome to our group, {user.name}!\n"
+                f"📌 Joining Date & Time: {now}\n\n"
+                f"Powered by: {BOT_NAME}"
+            )
+            self.send(
+                Message(text=welcome_text),
+                thread_id=thread_id,
+                thread_type=thread_type,
+            )
+
+    def onPersonRemoved(self, removed_id, author_id, thread_id, thread_type, **kwargs):
+        """মেম্বার লিভ নিলে বা রিমুভ হলে গুডবাই মেসেজ"""
+        now = datetime.datetime.now().strftime("%d-%m-%Y | %I:%M:%S %p")
+        user = self.fetchUserInfo(removed_id)[removed_id]
+        goodbye_text = (
+            f"⚡ {TEAM_NAME} ⚡\n\n"
+            f"Goodbye {user.name} 👋\n"
+            f"📌 Leaving Date & Time: {now}"
+        )
+        self.send(
+            Message(text=goodbye_text),
+            thread_id=thread_id,
+            thread_type=thread_type,
+        )
+
+    def onReaction(self, reaction, author_id, message_id, thread_id, thread_type, **kwargs):
+        """অ্যাডমিন 😡 দিলে মেসেজ ডিলিট হওয়া"""
+        if str(author_id) in ADMIN_IDS and reaction == "😡":
+            self.unsendMessage(message_id)
+
+    def onMessage(self, author_id, message_object, thread_id, thread_type=ThreadType.GROUP, **kwargs):
+        text = message_object.text
+        if not text:
+            return
+
+        author_id_str = str(author_id)
+
+        # ১. গালি শনাক্তকরণ ও ওয়ার্নিং
+        if any(word in text.lower() for word in BAD_WORDS):
+            warning_msg = "⚠️ Warning! Group-e gali dewa nishiddho. Next time gali dile kick kore dewa hobe!"
+            self.send(
+                Message(text=warning_msg),
+                thread_id=thread_id,
+                thread_type=thread_type,
+            )
+            return
+
+        # ২. 'bot' শব্দ থাকলে অটো রেসপন্স
+        if "bot" in text.lower() and not text.startswith("/"):
+            self.send(
+                Message(text=f"Ji, ami {BOT_NAME}! Kono sahajjo lagbe?"),
+                thread_id=thread_id,
+                thread_type=thread_type,
+            )
+
+        # ৩. ইন্টারনেটে গান সার্চ (/play <song name>)
+        if text.startswith("/play "):
+            song_name = text.replace("/play ", "").strip()
+            self.send(
+                Message(text=f"🔍 Fetching '{song_name}' from internet sourse... Please wait!"),
+                thread_id=thread_id,
+                thread_type=thread_type,
+            )
+
+        # ==========================================
+        #  ONLY ADMIN COMMANDS (Sayem & Admin 2)
+        # ==========================================
+        if author_id_str in ADMIN_IDS:
+
+            # Mention + pp (প্রোফাইল পিকচার লিংক দেখাবে)
+            if "pp" in text.lower() and message_object.mentions:
+                target_id = list(message_object.mentions.keys())[0]
+                target_user = self.fetchUserInfo(target_id)[target_id]
+                self.send(
+                    Message(text=f"📷 Profile Picture Link:\n{target_user.photo}"),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+
+            # Mention + id (ইউজার আইডি কোড দেখাবে)
+            elif "id" in text.lower() and message_object.mentions:
+                target_id = list(message_object.mentions.keys())[0]
+                self.send(
+                    Message(text=f"🆔 User ID Code: {target_id}"),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+
+            # /mention (সবাইকে ম্যেনশন করে কলে ডাকা)
+            elif text == "/mention":
+                self.stop_mention = False
+                thread_info = self.fetchThreadInfo(thread_id)[thread_id]
+                users = thread_info.participants
+
+                for u_id in users:
+                    if self.stop_mention:
+                        break
+                    mention = Mention(thread_id=u_id, offset=0, length=9)
+                    self.send(
+                        Message(text="@everyone Call-e ashun!", mentions=[mention]),
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                    )
+                    time.sleep(1)
+
+                if not self.stop_mention:
+                    self.send(
+                        Message(text="Sayem sir shobai ke mention kora sesh hoyece ekhon ekta bow den 🐸🫴"),
+                        thread_id=thread_id,
+                        thread_type=thread_type,
+                    )
+
+            # /stop (মেনশন অফ করা)
+            elif text == "/stop":
+                self.stop_mention = True
+                self.send(
+                    Message(text="🛑 Mention process stopped by Admin."),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+
+            # /bot ekta rls korai dao (মেসেজ দিয়ে আইডিতে নক দিতে বলবে)
+            elif text == "/bot ekta rls korai dao":
+                admin_mention = Mention(thread_id=ADMIN_1_ID, offset=0, length=9)
+                msg_text = (
+                    f"@everyone Sayem sir er jonno ekta bow lagbe keu hote caile tar inbox e nok koro!\n"
+                    f"🔗 Owner Profile: {ADMIN_1_LINK}"
+                )
+                self.send(
+                    Message(text=msg_text, mentions=[admin_mention]),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+
+            # /propose (এডমিনের হয়ে ম্যেনশন দিয়ে প্রপোজ করা)
+            elif text.startswith("/propose") and message_object.mentions:
+                target_id = list(message_object.mentions.keys())[0]
+                target_mention = Mention(thread_id=target_id, offset=0, length=7)
+                self.send(
+                    Message(
+                        text="@member Sayem sir apnake propose korechen! ❤️",
+                        mentions=[target_mention],
+                    ),
+                    thread_id=thread_id,
+                    thread_type=thread_type,
+                )
+
+
+# ==========================================
+#  BOT RUNNER
+# ==========================================
+if __name__ == "__main__":
+    # তোমার বট আইডির লগইন ইমেইল এবং পাসওয়ার্ড নিচে বসিয়ে রান করবে
+    BOT_EMAIL = "YOUR_BOT_EMAIL_HERE"
+    BOT_PASSWORD = "YOUR_BOT_PASSWORD_HERE"
+
+    print(f"[{BOT_NAME}] Starting Bot Service...")
+    print(f"Target Bot ID: {BOT_ID}")
+    print(f"Main Admin (Sayem): {ADMIN_1_ID}")
+    print(f"Second Admin: {ADMIN_2_ID}")
+
+    client = BVCSZBot(BOT_EMAIL, BOT_PASSWORD)
+    print("Bot is Active & Listening...")
+    client.listen()
+
+
+
